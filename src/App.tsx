@@ -71,6 +71,43 @@ const STATIC_FALLBACKS: Record<string, TattooOption[]> = {
   ],
   "infinity": [
     { chinese: "恒", traditional: "恆", pinyin: "héng", literal: "Eternal / Constant", meaning: "Constant movement of the heart, representing infinity, endurance, and eternity.", calligraphy: "Suits a horizontal, balanced Clerical script." }
+  ],
+  "loyalty": [
+    { chinese: "忠", traditional: "忠", pinyin: "zhōng", literal: "Loyalty / Devotion", meaning: "The heart centered and unwavering. Ancient virtue of faithfulness to one's center.", calligraphy: "Requires a solid, upright Regular script." }
+  ],
+  "respect": [
+    { chinese: "敬", traditional: "敬", pinyin: "jìng", literal: "Respect", meaning: "Showing reverence and honor through alert attention and care.", calligraphy: "Best in formal, structured scripts." }
+  ],
+  "hope": [
+    { chinese: "望", traditional: "望", pinyin: "wàng", literal: "Hope / Gaze", meaning: "To look towards the distance with expectation and desire.", calligraphy: "Suits a semi-cursive, forward-moving style." }
+  ],
+  "grace": [
+    { chinese: "雅", traditional: "雅", pinyin: "yǎ", literal: "Elegance / Grace", meaning: "Refinement, correct standard, and polished beauty.", calligraphy: "Beautiful in thin-stroke Regular script." }
+  ],
+  "destiny": [
+    { chinese: "缘", traditional: "緣", pinyin: "yuán", literal: "Fated Chance", meaning: "The invisible thread that brings people and events together; predestined relationship.", calligraphy: "Most romantic in Cursive scripts." }
+  ],
+  "dream": [
+    { chinese: "梦", traditional: "夢", pinyin: "mèng", literal: "Dream", meaning: "Vision of the night, or a profound ambition and aspiration for the future.", calligraphy: "Dreamlike in abstract Cursive styles." }
+  ],
+  "truth": [
+    { chinese: "真", traditional: "真", pinyin: "zhēn", literal: "Truth / Reality", meaning: "That which is genuine, sincere, and perfectly real.", calligraphy: "Suits direct, unadorned Regular script." }
+  ],
+  "power": [
+    { chinese: "力", traditional: "力", pinyin: "lì", literal: "Power", meaning: "Physical strength and energy.", calligraphy: "Bold strokes." },
+    { chinese: "权", traditional: "權", pinyin: "quán", literal: "Authority", meaning: "Power to rule or influence.", calligraphy: "Formal style." }
+  ],
+  "tranquility": [
+    { chinese: "静", traditional: "靜", pinyin: "jìng", literal: "Tranquility", meaning: "Stillness of heart and mind.", calligraphy: "Delicate style." }
+  ],
+  "bravery": [
+    { chinese: "勇", traditional: "勇", pinyin: "yǒng", literal: "Bravery", meaning: "Acts of valor.", calligraphy: "Dynamic style." }
+  ],
+  "eternal": [
+    { chinese: "永", traditional: "永", pinyin: "yǒng", literal: "Eternal", meaning: "Forever; without end. A classic calligraphy character.", calligraphy: "The 'Eight Principles of Yong' character." }
+  ],
+  "fate": [
+    { chinese: "命", traditional: "命", pinyin: "mìng", literal: "Life / Destiny", meaning: "The command of heaven; one's lot in life.", calligraphy: "Solemn style." }
   ]
 };
 
@@ -80,6 +117,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<TattooOption[]>([]);
+  const [currentSearch, setCurrentSearch] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [activeFont, setActiveFont] = useState(FONTS[0]);
   const [inspiration, setInspiration] = useState<{ chinese: string; pinyin: string; meaning: string } | null>(null);
@@ -133,6 +171,12 @@ export default function App() {
 
     try {
       const res = await fetch('/api/inspiration');
+      const contentType = res.headers.get("content-type");
+      
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Inspiration API returned non-JSON");
+      }
+
       const data = await res.json();
       
       if (!res.ok || data.error) {
@@ -156,11 +200,16 @@ export default function App() {
     }
   };
 
-  const handleSearch = async (e?: React.FormEvent) => {
+  const handleSearch = async (targetInput?: string, e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim()) return;
+    const finalInput = targetInput || input;
+    if (!finalInput.trim()) return;
 
-    const query = input.trim().toLowerCase();
+    const query = finalInput.trim().toLowerCase();
+    
+    // For UI feedback, sync input state if it came from a button
+    if (targetInput) setInput(targetInput);
+    setCurrentSearch(query);
     
     // Check static fallbacks first (to save quota for everyone)
     if (STATIC_FALLBACKS[query]) {
@@ -197,6 +246,13 @@ export default function App() {
         body: JSON.stringify({ text: query }),
       });
       
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response received:", text);
+        throw new Error(`Server returned non-JSON response (${res.status}). It might be under heavy load.`);
+      }
+
       const data = await res.json();
       
       if (!res.ok) {
@@ -563,7 +619,7 @@ export default function App() {
 
           {/* Main Search */}
           <div className="w-full max-w-2xl mb-16 relative z-10">
-            <form onSubmit={handleSearch} className="relative">
+            <form onSubmit={(e) => handleSearch(undefined, e)} className="relative">
               <input
                 type="text"
                 value={input}
@@ -601,15 +657,10 @@ export default function App() {
             )}
             
             <div className="mt-8 flex flex-wrap justify-center gap-2">
-              {["Strength", "Peace", "Love", "Family", "Spirit", "Warrior", "Wisdom", "Dragon"].map(term => (
+              {["Strength", "Dragon", "Peace", "Love", "Family", "Warrior", "Power", "Loyalty", "Wisdom", "Dream", "Spirit"].map(term => (
                 <button
                   key={term}
-                  onClick={() => {
-                    setInput(term);
-                    // We need a way to trigger handleSearch safely or just rely on the click
-                    const searchBtn = document.getElementById('search-trigger');
-                    if (searchBtn) searchBtn.click();
-                  }}
+                  onClick={() => handleSearch(term)}
                   className="px-4 py-2 rounded-full bg-paper border border-ink/5 text-[10px] uppercase tracking-widest font-bold text-ink/40 hover:text-crimson hover:border-crimson/30 transition-all cursor-pointer"
                 >
                   {term}
@@ -637,7 +688,7 @@ export default function App() {
           <AnimatePresence mode="wait">
             {results.length > 0 && (
               <motion.div
-                key="results"
+                key={`results-${currentSearch}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 mb-24"

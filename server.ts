@@ -123,6 +123,20 @@ async function startServer() {
     }
   });
 
+  // API 404 handler
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route ${req.method} ${req.path} not found` });
+  });
+
+  // Global Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Global Server Error:", err);
+    res.status(err.status || 500).json({ 
+      error: "An internal server error occurred",
+      message: err.message
+    });
+  });
+
   // Vite integration for dev, static files for prod
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
