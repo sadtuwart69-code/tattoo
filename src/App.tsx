@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+
+declare global {
+  interface Window {
+    adsbygoogle: any[];
+  }
+}
 import { Search, PenTool, BookOpen, Share2, Info, RefreshCw, Feather, Download, LayoutGrid, ExternalLink, Menu, X, Sparkles } from 'lucide-react';
 import { HEXAGRAMS, Hexagram } from './hexagrams';
 import { ZODIAC_ANIMALS, ZodiacAnimal } from './zodiac';
@@ -110,18 +116,68 @@ const STATIC_FALLBACKS: Record<string, TattooOption[]> = {
     { chinese: "命", traditional: "命", pinyin: "mìng", literal: "Life / Destiny", meaning: "The command of heaven; one's lot in life.", calligraphy: "Solemn style." }
   ],
   "cat": [
-    { chinese: "猫", traditional: "貓", pinyin: "māo", literal: "Cat", meaning: "A symbol of agility, curiosity, and mystery in many cultures, though traditionally in China it was also for warding off spirits.", calligraphy: "Playful Semi-cursive style." }
+    { chinese: "猫", traditional: "貓", pinyin: "māo", literal: "Cat", meaning: "A symbol of agility, curiosity, and mystery in many cultures; in China, also a guardian of homes.", calligraphy: "Playful Semi-cursive style." }
+  ],
+  "猫": [
+    { chinese: "猫", traditional: "貓", pinyin: "māo", literal: "Cat", meaning: "The Chinese character for 'cat'. Symbol of luck and agility.", calligraphy: "Classic Clerical or Regular script." }
   ],
   "dog": [
-    { chinese: "犬", traditional: "犬", pinyin: "quǎn", literal: "Dog", meaning: "Symbol of loyalty, protection, and faithfulness.", calligraphy: "Strong Regular script." }
+    { chinese: "犬", traditional: "犬", pinyin: "quǎn", literal: "Dog", meaning: "Symbol of loyalty, protection, and faithfulness.", calligraphy: "Strong Regular script." },
+    { chinese: "狗", traditional: "狗", pinyin: "gǒu", literal: "Dog", meaning: "The common character for dog, often meaning fidelity.", calligraphy: "Any legible script." }
+  ],
+  "狗": [
+    { chinese: "狗", traditional: "狗", pinyin: "gǒu", literal: "Dog", meaning: "Common character for dog.", calligraphy: "Regular script." }
   ],
   "tiger": [
     { chinese: "虎", traditional: "虎", pinyin: "hǔ", literal: "Tiger", meaning: "King of beasts in China, symbol of courage, protection from evil, and kingly power.", calligraphy: "Needs aggressive, powerful brushwork." }
   ],
+  "虎": [
+    { chinese: "虎", traditional: "虎", pinyin: "hǔ", literal: "Tiger", meaning: "The character for Tiger.", calligraphy: "Seal script is very popular for this." }
+  ],
   "phoenix": [
     { chinese: "凤", traditional: "鳳", pinyin: "fèng", literal: "Phoenix", meaning: "Symbol of high virtue, grace, and rebirth; representing the feminine aspect (dual with Dragon).", calligraphy: "Sleek, refined strokes." }
+  ],
+  "sun": [
+    { chinese: "日", traditional: "日", pinyin: "rì", literal: "Sun", meaning: "The source of light, life, and the yang principle.", calligraphy: "Ancient Seal script looks very cosmic." }
+  ],
+  "moon": [
+    { chinese: "月", traditional: "月", pinyin: "yuè", literal: "Moon", meaning: "Symbol of beauty, change, and the yin principle.", calligraphy: "Elegant Regular script." }
   ]
 };
+
+function GoogleAd() {
+  const adRef = useRef<HTMLModElement>(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    
+    try {
+      if (window.adsbygoogle && adRef.current && !adRef.current.getAttribute('data-adsbygoogle-status')) {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+        initialized.current = true;
+      }
+    } catch (e) {
+      console.error('AdSense error:', e);
+    }
+  }, []);
+
+  return (
+    <div className="w-full h-32 mb-20 flex items-center justify-center bg-paper/30 border border-ink/5 rounded-3xl overflow-hidden relative">
+      <ins 
+           ref={adRef}
+           className="adsbygoogle"
+           style={{ display: 'block', width: '100%', height: '100%' }}
+           data-ad-client="ca-pub-4000152233223084"
+           data-ad-slot=""
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <span className="absolute inset-0 flex items-center justify-center -z-10 text-[10px] uppercase tracking-widest font-bold text-ink/5 italic">
+        Advertisement
+      </span>
+    </div>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState<'translate' | 'hexagrams' | 'zodiac'>('translate');
@@ -252,7 +308,7 @@ export default function App() {
     setResults([]);
     console.log("Searching for:", query);
     try {
-      const res = await fetch('/api/translate', {
+      const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: query }),
@@ -1019,9 +1075,7 @@ export default function App() {
       )}
 
       {/* AdSense Row */}
-      <div className="w-full h-32 mb-20">
-         <div className="adsense-placeholder h-full">Google AdSense - Horizontal Banner</div>
-      </div>
+      <GoogleAd />
 
       {/* Feature Grid */}
       <section className="w-full grid grid-cols-1 md:grid-cols-3 gap-12 mb-32 border-t border-ink/5 pt-16 relative z-10">

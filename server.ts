@@ -27,13 +27,13 @@ async function startServer() {
     }
   });
 
-  // API: Translate English to Chinese Tattoo Designs
-  app.post("/api/translate", async (req, res) => {
+  // API: Search for Chinese Tattoo Designs
+  app.post("/api/search", async (req, res) => {
     try {
       const { text } = req.body;
-      if (!text) return res.status(400).json({ error: "Text is required" });
+      if (!text) return res.status(400).json({ error: "Search text is required" });
 
-      console.log("Gemini translating concept:", text);
+      console.log(`[SEARCH] Query: "${text}"`);
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -130,7 +130,8 @@ async function startServer() {
 
   // API 404 handler
   app.all("/api/*", (req, res) => {
-    res.status(404).json({ error: `API route ${req.method} ${req.path} not found` });
+    console.warn(`[SERVER] 404 at ${req.method} ${req.path}`);
+    res.status(404).json({ error: `API route ${req.method} ${req.path} not found on this server` });
   });
 
   // Global Error Handler
