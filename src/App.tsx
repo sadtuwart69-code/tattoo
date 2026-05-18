@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, PenTool, BookOpen, Share2, Info, RefreshCw, Feather, Download, LayoutGrid, ExternalLink, Menu, X } from 'lucide-react';
+import { Search, PenTool, BookOpen, Share2, Info, RefreshCw, Feather, Download, LayoutGrid, ExternalLink, Menu, X, Sparkles } from 'lucide-react';
 import { HEXAGRAMS, Hexagram } from './hexagrams';
+import { ZODIAC_ANIMALS, ZodiacAnimal } from './zodiac';
 
 interface TattooOption {
   chinese: string;
@@ -13,26 +14,61 @@ interface TattooOption {
 }
 
 const FONTS = [
-  { name: 'Traditional', value: 'font-serif' },
-  { name: 'Brush Script', value: 'font-["Zhi_Mang_Xing"]' },
-  { name: 'Formal Brush', value: 'font-["Ma_Shan_Zheng"]' },
-  { name: 'Slender', value: 'font-["Long_Cang"]' },
-  { name: 'Modern', value: 'font-sans' },
+  { name: 'Regular 楷书', value: 'font-["Ma_Shan_Zheng"]', family: 'Ma Shan Zheng' },
+  { name: 'Clerical 隶书', value: 'font-["ZCOOL_XiaoWei"]', family: 'ZCOOL XiaoWei' },
+  { name: 'Cursive 草书', value: 'font-["Zhi_Mang_Xing"]', family: 'Zhi Mang Xing' },
+  { name: 'Modern 黑体', value: 'font-["Noto_Sans_SC"]', family: 'Noto Sans SC' },
+];
+
+const ORNAMENT_STYLES = [
+  'minimal',
+  'mandala',
+  'tribal',
+  'zen-burst',
+  'geometric-pulse',
+  'cloud'
 ];
 
 export default function App() {
-  const [view, setView] = useState<'translate' | 'hexagrams'>('translate');
+  const [view, setView] = useState<'translate' | 'hexagrams' | 'zodiac'>('translate');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TattooOption[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [activeFont, setActiveFont] = useState(FONTS[1]);
+  const [activeFont, setActiveFont] = useState(FONTS[0]);
   const [inspiration, setInspiration] = useState<{ chinese: string; pinyin: string; meaning: string } | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [zodiacStyles, setZodiacStyles] = useState<Record<string, { style: string, seed: number, mode: 'calligraphy' | 'totem' }>>({});
+  const [birthDate, setBirthDate] = useState("");
+  const [foundZodiac, setFoundZodiac] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInspiration();
+    const initialStyles: Record<string, { style: string, seed: number, mode: 'calligraphy' | 'totem' }> = {};
+    ZODIAC_ANIMALS.forEach(a => {
+      initialStyles[a.name] = { style: 'minimal', seed: Math.random(), mode: 'calligraphy' };
+    });
+    setZodiacStyles(initialStyles);
   }, []);
+
+  const calculateZodiac = (dateStr: string) => {
+    if (!dateStr) return;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return;
+    
+    // Yearly offset: 1924 is Rat
+    const year = date.getFullYear();
+    const zodiacs = ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig"];
+    const index = (year - 1924) % 12;
+    const result = zodiacs[index < 0 ? index + 12 : index];
+    setFoundZodiac(result);
+    
+    // Scroll to the element
+    setTimeout(() => {
+      const el = document.getElementById(`zodiac-${result}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
 
   const fetchInspiration = async () => {
     try {
@@ -66,26 +102,214 @@ export default function App() {
     }
   };
 
-  const downloadSVG = (text: string, fontName: string, type: 'tattoo' | 'hexagram') => {
+  const getZodiacTotem = (animal: string, seed: number) => {
+    const s = Math.floor(seed * 1000);
+    const r = (val: number, range: number = 60) => val + (s % (range * 2)) - range;
+    const strokeWidth = 3 + (s % 18);
+    const opacity = 0.15 + ((s % 50) / 100);
+    const rot = (s % 360);
+    const scale = 0.75 + ((s % 50) / 100);
+    const dash = (s % 3) === 0 ? "none" : `${(s%30)+5} ${(s%20)+5}`;
+
+    const totems: Record<string, string> = {
+      Rat: `
+        <g transform="translate(400 400) rotate(${s % 40 - 20}) scale(${scale}) translate(-400 -400)">
+          <circle cx="400" cy="400" r="${r(180, 100)}" opacity="${opacity / 2}" fill="${(s%2===0)?'currentColor':'none'}" stroke="${(s%2===0)?'none':'currentColor'}" stroke-width="2"/>
+          <path d="M400 ${r(250, 60)} Q${r(600, 80)} ${r(250, 80)} ${r(550, 60)} 400 T400 ${r(550, 60)} T${r(250, 60)} 400 T400 250" stroke-width="${strokeWidth/2}" stroke-dasharray="${dash}"/>
+          <circle cx="${r(380, 50)}" cy="${r(380, 50)}" r="${5+s%10}" fill="currentColor"/>
+        </g>
+      `,
+      Ox: `
+        <g transform="rotate(${s % 10 - 5} 400 400)">
+          <path d="M${r(300, 50)} ${r(200, 50)} L400 400 L${r(500, 50)} ${r(200, 50)} M${r(350,40)} ${r(450,40)} Q400 ${r(650,80)} ${r(450,40)} 450" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+          <path d="M250 ${r(250, 30)} Q400 ${r(150, 50)} 550 250" stroke-width="${strokeWidth/3}"/>
+        </g>
+      `,
+      Tiger: `
+        <g transform="rotate(${s % 45} 400 400)">
+          <path d="M250 ${r(300, 20)} H550 M250 ${r(350, 20)} H550 M250 ${r(400, 20)} H550" stroke-width="${strokeWidth*2.2}" opacity="0.6"/>
+          <path d="M400 ${r(150, 50)} V650 M320 ${r(250, 30)} H480" stroke-width="${strokeWidth/1.5}"/>
+          <circle cx="400" cy="400" r="${r(360,60)}" stroke-dasharray="20 40" opacity="${opacity}"/>
+        </g>
+      `,
+      Dragon: `
+        <path d="M150 400 C150 ${r(50,80)} 650 ${r(50,80)} 650 400 S150 ${r(750,80)} 150 400" stroke-width="${strokeWidth*2}" stroke-dasharray="${20+s%50} 15" opacity="0.7"/>
+        <circle cx="400" cy="400" r="${r(120,40)}" opacity="${opacity}"/>
+        <path d="M400 300 Q${r(400,100)} 400 400 500" stroke-width="4" opacity="0.2"/>
+      `,
+      Snake: `
+        <g transform="rotate(${rot} 400 400)">
+           <path d="M400 ${r(80, 50)} C${r(650, 100)} 100 650 400 400 400 S150 ${r(720, 100)} 400 720" stroke-width="${strokeWidth}"/>
+           <path d="M400 ${r(380, 10)} L${r(440, 20)} ${r(440, 20)} M400 380 L${r(360, 20)} ${r(440, 20)}" stroke-width="${strokeWidth/1.8}"/>
+        </g>
+      `,
+      Horse: `
+        <path d="M${r(250, 60)} ${r(650, 60)} Q300 300 650 150 M300 650 Q300 400 600 250" stroke-width="${strokeWidth*1.2}" stroke-linecap="round"/>
+        <circle cx="400" cy="400" r="${r(380,40)}" stroke-dasharray="2 ${r(30, 20)}" opacity="${opacity}"/>
+      `,
+      Goat: `
+        <path d="M${r(250, 50)} ${r(250, 50)} Q400 ${r(400, 80)} 550 250 M320 250 L320 650 M480 250 L480 650" stroke-width="${strokeWidth}"/>
+        <rect x="${r(340, 20)}" y="${r(280, 20)}" width="120" height="${r(120, 40)}" opacity="${opacity}" fill="currentColor"/>
+      `,
+      Monkey: `
+        <circle cx="400" cy="400" r="${r(280,70)}" stroke-width="3" stroke-dasharray="10 10" opacity="0.2"/>
+        <path d="M${r(320, 30)} ${r(320, 30)} Q400 ${r(200, 50)} 480 320 T400 480 T320 320" stroke-width="${strokeWidth*1.5}"/>
+      `,
+      Rooster: `
+        <path d="M400 ${r(150, 40)} L${r(480, 30)} 400 L400 ${r(650, 40)} L${r(320, 30)} 400 Z" opacity="${opacity*2.5}" fill="currentColor"/>
+        <circle cx="400" cy="400" r="390" stroke-dasharray="1 ${r(60,30)}" stroke-width="${strokeWidth*3}"/>
+      `,
+      Dog: `
+        <path d="M${r(250, 50)} ${r(250, 50)} L400 ${r(550, 50)} L${r(550, 50)} 250" stroke-width="${strokeWidth*2.5}"/>
+        <path d="M${r(350, 20)} ${r(150, 50)} V450 M${r(450, 20)} 150 V450" stroke-width="${strokeWidth/2}" opacity="${opacity}"/>
+      `,
+      Pig: `
+        <circle cx="400" cy="400" r="${r(220,50)}" stroke-dasharray="${r(15,10)} ${r(8,4)}" stroke-width="2"/>
+        <circle cx="${r(360,10)}" cy="${r(370,10)}" r="${r(12,6)}"/>
+        <circle cx="${r(440,10)}" cy="${r(370,10)}" r="${r(12,6)}"/>
+        <path d="M300 450 Q400 550 500 450" stroke-width="1" opacity="0.1"/>
+      `
+    };
+    return totems[animal] || totems['Rat'];
+  };
+
+  const getZodiacOrnament = (style: string, seed: number) => {
+    const s = Math.floor(seed * 1000);
+    if (style === 'mandala') {
+      return `
+        <circle cx="400" cy="400" r="380" stroke-dasharray="4 12" opacity="0.3"/>
+        <circle cx="400" cy="400" r="320" stroke-width="0.5"/>
+        <path d="M400 20 Q450 150 400 280 Q350 150 400 20" fill="currentColor" opacity="0.1"/>
+        <path d="M400 780 Q450 650 400 520 Q350 650 400 780" fill="currentColor" opacity="0.1"/>
+        <path d="M20 400 Q150 450 280 400 Q150 350 20 400" fill="currentColor" opacity="0.1"/>
+        <path d="M780 400 Q650 450 520 400 Q650 350 780 400" fill="currentColor" opacity="0.1"/>
+        ${Array.from({ length: 8 }).map((_, i) => {
+          const angle = (i * 45) * (Math.PI / 180);
+          const x = 400 + Math.cos(angle) * 220;
+          const y = 400 + Math.sin(angle) * 220;
+          return `<circle cx="${x}" cy="${y}" r="40" stroke-width="1" fill="none" opacity="0.4"/>`;
+        }).join('')}
+      `;
+    }
+    if (style === 'tribal') {
+      return `
+        <path d="M400 50 C400 200 ${200 + (s%400)} 300 400 400 S${600 - (s%400)} 600 400 750" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+        <path d="M50 400 C200 400 300 ${200 + (s%400)} 400 400 S600 ${600 - (s%400)} 750 400" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+        <circle cx="400" cy="400" r="360" stroke-dasharray="30 20" stroke-width="4" />
+        <path d="M250 250 Q400 100 550 250 T250 250" fill="currentColor" opacity="0.2"/>
+        <path d="M250 550 Q400 700 550 550 T250 550" fill="currentColor" opacity="0.2"/>
+      `;
+    }
+    if (style === 'zen-burst') {
+      return `
+        <circle cx="400" cy="400" r="300" stroke-width="20" stroke-dasharray="1 40" opacity="0.2"/>
+        ${Array.from({ length: 24 }).map((_, i) => {
+          const angle = (i * 15 + (s % 15)) * (Math.PI / 180);
+          const x2 = 400 + Math.cos(angle) * (350 + (s % 50));
+          const y2 = 400 + Math.sin(angle) * (350 + (s % 50));
+          return `<line x1="400" y1="400" x2="${x2}" y2="${y2}" opacity="0.4" stroke-width="${i % 2 === 0 ? 2 : 0.5}"/>`;
+        }).join('')}
+        <circle cx="400" cy="400" r="380" stroke-width="1" opacity="0.1"/>
+      `;
+    }
+    if (style === 'geometric-pulse') {
+      const rot = s % 360;
+      return `
+        <rect x="100" y="100" width="600" height="600" transform="rotate(${rot} 400 400)" stroke-width="1" opacity="0.2"/>
+        <rect x="150" y="150" width="500" height="500" transform="rotate(${rot + 45} 400 400)" stroke-width="2" opacity="0.3"/>
+        <rect x="200" y="200" width="400" height="400" transform="rotate(${rot + 22} 400 400)" stroke-width="4" opacity="0.4"/>
+        <circle cx="400" cy="400" r="350" stroke-width="1" stroke-dasharray="5 5" />
+      `;
+    }
+    return `
+      <path d="M100 300 Q150 250 200 300 T300 300 T400 300 T500 300 T600 300 T700 300" stroke-width="2" opacity="0.3"/>
+      <path d="M100 500 Q150 450 200 500 T300 500 T400 500 T500 500 T600 500 T700 500" stroke-width="2" opacity="0.3"/>
+      <circle cx="400" cy="400" r="330" fill="none" stroke-width="40" stroke-dasharray="1 60" opacity="0.1"/>
+      <path d="M400 200 A200 200 0 0 1 400 600 A200 200 0 0 1 400 200" stroke-width="1" stroke-dasharray="10 10"/>
+    `;
+  };
+
+  const ZodiacSVGPreview = ({ animal, text, fontFamily, style, seed, mode, className = "" }: { animal: string, text: string, fontFamily: string, style: string, seed: number, mode: 'calligraphy' | 'totem', className?: string }) => {
+    return (
+      <svg viewBox="0 0 800 800" className={`w-full h-full ${className}`} xmlns="http://www.w3.org/2000/svg">
+        <rect width="800" height="800" fill="#f5f2ed" opacity="0.05" />
+        <g stroke="currentColor" fill="none" strokeWidth="2" className="text-crimson">
+          {mode === 'calligraphy' ? (
+            <>
+              <g dangerouslySetInnerHTML={{ __html: getZodiacOrnament(style, seed) }} />
+              <text 
+                x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" 
+                fontFamily={`'${fontFamily}', serif`} fontSize="380" fill="currentColor" className="text-ink"
+              >
+                {text}
+              </text>
+            </>
+          ) : (
+             <g className="text-ink">
+               <g dangerouslySetInnerHTML={{ __html: getZodiacTotem(animal, seed) }} />
+               <text 
+                x="50%" y="90%" dominantBaseline="middle" textAnchor="middle" 
+                fontFamily={`'${fontFamily}', serif`} fontSize="60" fill="currentColor" opacity="0.8"
+              >
+                {text}
+              </text>
+             </g>
+          )}
+        </g>
+        <text x="50%" y="97%" textAnchor="middle" fontFamily="sans-serif" fontSize="12" fill="#1a1a1a" opacity="0.2">STENCIL READY &bull; TATTOO.CCWU.CC</text>
+      </svg>
+    );
+  };
+
+  const downloadSVG = (text: string, fontFamily: string, type: 'tattoo' | 'hexagram' | 'zodiac', extra?: any) => {
     let svgContent = '';
     if (type === 'tattoo') {
       svgContent = `
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=${fontFamily.replace(/\s+/g, '+')}&amp;display=swap');
+    </style>
+  </defs>
   <rect width="100%" height="100%" fill="#f5f2ed" />
-  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="${fontName}, serif" font-size="120" fill="#1a1a1a">${text}</text>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="'${fontFamily}', serif" font-size="200" fill="#1a1a1a">${text}</text>
+  <text x="50%" y="85%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#a01c1c" opacity="0.3">Authentic Tattoo Design - CCWU.CC</text>
 </svg>`;
-    } else {
-      // Hexagram dynamic SVG generation
+    } else if (type === 'hexagram') {
       const hex = HEXAGRAMS.find(h => h.name === text);
       if (!hex) return;
       const lines = hex.binary.split('').reverse();
-      svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 40 60">
+      svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 100 100">
         <rect width="100%" height="100%" fill="#f5f2ed" />
+        <g transform="translate(10, 15)">
         ${lines.map((bit, i) => bit === '1' 
-          ? `<rect x="5" y="${5 + i * 8}" width="30" height="4" fill="#1a1a1a" />` 
-          : `<rect x="5" y="${5 + i * 8}" width="12" height="4" fill="#1a1a1a" /><rect x="23" y="${5 + i * 8}" width="12" height="4" fill="#1a1a1a" />`
+          ? `<rect x="0" y="${i * 12}" width="80" height="6" fill="#1a1a1a" />` 
+          : `<rect x="0" y="${i * 12}" width="35" height="6" fill="#1a1a1a" /><rect x="45" y="${i * 12}" width="35" height="6" fill="#1a1a1a" />`
         ).join('')}
+        </g>
+        <text x="50" y="95" font-family="serif" font-size="6" text-anchor="middle" fill="#a01c1c">${hex.name} - ${hex.meaning}</text>
       </svg>`;
+    } else if (type === 'zodiac') {
+      const { style, seed, mode, animal } = extra || { style: 'minimal', seed: 0, mode: 'calligraphy', animal: 'Tiger' };
+      const ornament = mode === 'calligraphy' ? getZodiacOrnament(style, seed) : getZodiacTotem(animal, seed);
+      const mainContent = mode === 'calligraphy' 
+        ? `<text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="'${fontFamily}', serif" font-size="320" fill="#1a1a1a">${text}</text>`
+        : `<g stroke="#1a1a1a" fill="none" stroke-width="2">${getZodiacTotem(animal, seed)}</g><text x="50%" y="90%" text-anchor="middle" font-family="'${fontFamily}', serif" font-size="60" fill="#1a1a1a">${text}</text>`;
+      
+      svgContent = `
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=${fontFamily.replace(/\s+/g, '+')}&amp;display=swap');
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#f5f2ed" />
+  <g stroke="#a01c1c" fill="none" stroke-width="2" opacity="0.4">
+    ${ornament}
+  </g>
+  ${mainContent}
+  <text x="50%" y="95%" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1a1a1a" opacity="0.2">STENCIL READY DESIGN &bull; TATTOO.CCWU.CC</text>
+</svg>`;
     }
 
     const blob = new Blob([svgContent], { type: 'image/svg+xml' });
@@ -120,7 +344,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center max-w-7xl mx-auto px-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center max-w-7xl mx-auto px-4 relative overflow-hidden select-none">
       {/* Background Texture */}
       <img 
         src="/src/assets/images/chinese_ink_wash_bg_1779089776813.png" 
@@ -128,12 +352,12 @@ export default function App() {
         className="fixed inset-0 w-full h-full object-cover opacity-10 pointer-events-none -z-10"
         referrerPolicy="no-referrer"
       />
-
+      
       {/* Navigation */}
-      <nav className="w-full flex items-center justify-between py-6 mb-8 border-b border-ink/5">
+      <nav className="w-full flex items-center justify-between py-6 mb-8 border-b border-ink/5 relative z-20">
         <div 
           className="flex items-center gap-2 cursor-pointer group"
-          onClick={() => setView('translate')}
+          onClick={() => { setView('translate'); setMobileMenuOpen(false); }}
         >
           <Feather className="text-crimson w-6 h-6 group-hover:rotate-12 transition-transform" />
           <span className="font-serif text-xl tracking-wider">Tattoo CCWU</span>
@@ -142,28 +366,34 @@ export default function App() {
         <div className="hidden md:flex items-center gap-8">
           <button 
             onClick={() => setView('translate')}
-            className={`text-sm uppercase tracking-widest font-medium transition-colors ${view === 'translate' ? 'text-crimson' : 'text-ink/60 hover:text-ink'}`}
+            className={`text-sm uppercase tracking-widest font-medium transition-colors cursor-pointer ${view === 'translate' ? 'text-crimson' : 'text-ink/60 hover:text-ink'}`}
           >
             Design Generator
           </button>
           <button 
             onClick={() => setView('hexagrams')}
-            className={`text-sm uppercase tracking-widest font-medium transition-colors ${view === 'hexagrams' ? 'text-crimson' : 'text-ink/60 hover:text-ink'}`}
+            className={`text-sm uppercase tracking-widest font-medium transition-colors cursor-pointer ${view === 'hexagrams' ? 'text-crimson' : 'text-ink/60 hover:text-ink'}`}
           >
-            I Ching 64 Hexagrams
+            64 Hexagrams
+          </button>
+          <button 
+            onClick={() => setView('zodiac')}
+            className={`text-sm uppercase tracking-widest font-medium transition-colors cursor-pointer ${view === 'zodiac' ? 'text-crimson' : 'text-ink/60 hover:text-ink'}`}
+          >
+            Zodiac Signs
           </button>
           <a 
             href="https://sadtuwart69-code.github.io/Oriental-Oracle/" 
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-sm uppercase tracking-widest font-medium text-ink/60 hover:text-ink transition-colors"
+            className="flex items-center gap-1 text-sm uppercase tracking-widest font-medium text-ink/60 hover:text-ink transition-colors cursor-pointer"
           >
             Oriental Oracle <ExternalLink className="w-3 h-3" />
           </a>
         </div>
 
         <div className="md:hidden">
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="cursor-pointer">
             {mobileMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
@@ -178,15 +408,16 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden fixed inset-0 z-50 bg-paper flex flex-col items-center justify-center gap-8 p-8"
           >
-            <button onClick={() => { setView('translate'); setMobileMenuOpen(false); }} className="text-2xl font-serif">Design Generator</button>
-            <button onClick={() => { setView('hexagrams'); setMobileMenuOpen(false); }} className="text-2xl font-serif">I Ching 64 Hexagrams</button>
-            <a href="https://sadtuwart69-code.github.io/Oriental-Oracle/" target="_blank" className="text-2xl font-serif flex items-center gap-2">Oriental Oracle <ExternalLink /></a>
-            <button onClick={() => setMobileMenuOpen(false)} className="mt-8 p-4 bg-ink text-paper rounded-full"><X /></button>
+            <button onClick={() => { setView('translate'); setMobileMenuOpen(false); }} className="text-2xl font-serif cursor-pointer">Design Generator</button>
+            <button onClick={() => { setView('hexagrams'); setMobileMenuOpen(false); }} className="text-2xl font-serif cursor-pointer">I Ching 64 Hexagrams</button>
+            <button onClick={() => { setView('zodiac'); setMobileMenuOpen(false); }} className="text-2xl font-serif cursor-pointer">Zodiac Signs</button>
+            <a href="https://sadtuwart69-code.github.io/Oriental-Oracle/" target="_blank" className="text-2xl font-serif flex items-center gap-2 cursor-pointer">Oriental Oracle <ExternalLink /></a>
+            <button onClick={() => setMobileMenuOpen(false)} className="mt-8 p-4 bg-ink text-paper rounded-full cursor-pointer"><X /></button>
           </motion.div>
         )}
       </AnimatePresence>
       
-      {view === 'translate' ? (
+      {view === 'translate' && (
         <>
           {/* Header */}
           <header className="w-full text-center mb-12">
@@ -199,7 +430,7 @@ export default function App() {
                 <span className="text-[10px] uppercase tracking-[0.4em] font-bold text-ink/40">Premium Calligraphy Engine</span>
               </div>
               <h1 className="text-5xl md:text-8xl font-serif mb-4 leading-tight">Chinese Tattoo <br /><span className="text-crimson italic">Generator</span></h1>
-              <p className="text-ink/60 max-w-xl mx-auto text-lg font-light">
+              <p className="text-ink/60 max-w-xl mx-auto text-lg font-light select-text">
                 Discover real meanings, deep cultural roots, and exquisite calligraphy for your next permanent art.
               </p>
             </motion.div>
@@ -215,12 +446,12 @@ export default function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="concept (e.g. 'Strength', 'Wisdom')"
-                className="w-full bg-white border border-ink/10 rounded-full py-6 px-10 pr-20 text-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-crimson/5 focus:border-crimson/30 transition-all placeholder:text-ink/20 font-light"
+                className="w-full bg-white border border-ink/10 rounded-full py-6 px-10 pr-20 text-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-crimson/5 focus:border-crimson/30 transition-all placeholder:text-ink/20 font-light select-text"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-ink text-paper p-4 rounded-full hover:bg-crimson transition-colors disabled:opacity-50"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-ink text-paper p-4 rounded-full hover:bg-crimson transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {loading ? <RefreshCw className="w-7 h-7 animate-spin" /> : <Search className="w-7 h-7" />}
               </button>
@@ -236,8 +467,8 @@ export default function App() {
                   <BookOpen className="text-crimson w-3 h-3" />
                   <span className="text-[10px] uppercase tracking-widest text-crimson font-bold">Daily Inspo</span>
                 </div>
-                <p className="font-serif text-3xl mb-1">{inspiration.chinese} <span className="text-sm text-ink/40 italic font-sans">({inspiration.pinyin})</span></p>
-                <p className="text-sm text-ink/60 italic font-light">{inspiration.meaning}</p>
+                <p className="font-serif text-3xl mb-1 select-text">{inspiration.chinese} <span className="text-sm text-ink/40 italic font-sans select-text">({inspiration.pinyin})</span></p>
+                <p className="text-sm text-ink/60 italic font-light select-text">{inspiration.meaning}</p>
               </motion.div>
             )}
           </div>
@@ -257,7 +488,7 @@ export default function App() {
                     <button
                       key={i}
                       onClick={() => setSelectedIdx(i)}
-                      className={`flex-shrink-0 p-5 rounded-3xl border text-left transition-all ${
+                      className={`flex-shrink-0 p-5 rounded-3xl border text-left transition-all cursor-pointer ${
                         selectedIdx === i 
                           ? 'bg-ink text-paper border-ink shadow-xl -translate-y-1 lg:translate-x-2' 
                           : 'bg-white border-ink/5 hover:border-crimson/30'
@@ -272,14 +503,14 @@ export default function App() {
                 </div>
 
                 {/* Focus Area */}
-                <div className="lg:col-span-9 bg-white border border-ink/5 rounded-[56px] p-8 md:p-16 shadow-2xl relative overflow-hidden calligraphy-box">
+                <div className="lg:col-span-9 bg-white border border-ink/5 rounded-[44px] md:rounded-[56px] p-6 md:p-16 shadow-2xl relative overflow-hidden calligraphy-box">
                   {/* Font Toggles */}
-                  <div className="absolute top-8 right-8 flex gap-2">
+                  <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-wrap justify-end gap-1 md:gap-2 max-w-[200px] md:max-w-none">
                     {FONTS.map(f => (
                       <button
                         key={f.name}
                         onClick={() => setActiveFont(f)}
-                        className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest border transition-all ${
+                        className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest border transition-all cursor-pointer ${
                           activeFont.name === f.name ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink/60 border-ink/5 hover:border-ink/20'
                         }`}
                       >
@@ -294,19 +525,19 @@ export default function App() {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ type: 'spring', damping: 20 }}
-                      className="mb-8"
+                      className="mb-8 mt-12 md:mt-0"
                     >
-                      <h2 className={`text-[120px] md:text-[220px] leading-none text-ink drop-shadow-xl select-all ${activeFont.value}`}>
-                        {selectedOption.chinese}
+                      <h2 className="text-[100px] sm:text-[140px] md:text-[220px] leading-none text-ink drop-shadow-xl select-all">
+                        <span className={activeFont.value}>{selectedOption.chinese}</span>
                       </h2>
-                      <p className="text-crimson font-serif text-3xl mt-6 italic">{selectedOption.pinyin}</p>
+                      <p className="text-crimson font-serif text-3xl mt-6 italic select-text">{selectedOption.pinyin}</p>
                     </motion.div>
 
                     <div className="flex gap-4 mb-12">
-                      <div className="px-4 py-2 bg-paper rounded-full text-xs font-mono text-ink/40">TRAD: {selectedOption.traditional}</div>
+                      <div className="px-4 py-2 bg-paper rounded-full text-xs font-mono text-ink/40 select-text">TRAD: {selectedOption.traditional}</div>
                       <button 
-                        onClick={() => downloadSVG(selectedOption.chinese, activeFont.name, 'tattoo')}
-                        className="flex items-center gap-2 px-6 py-2 bg-crimson text-paper rounded-full text-xs uppercase tracking-widest font-bold hover:bg-ink transition-colors shadow-lg"
+                        onClick={() => downloadSVG(selectedOption.chinese, activeFont.family!, 'tattoo')}
+                        className="flex items-center gap-2 px-6 py-2 bg-crimson text-paper rounded-full text-xs uppercase tracking-widest font-bold hover:bg-ink transition-colors shadow-lg cursor-pointer"
                       >
                         <Download className="w-4 h-4" /> Download SVG
                       </button>
@@ -318,8 +549,8 @@ export default function App() {
                           <BookOpen className="w-4 h-4" />
                           <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold">Deep Context</h3>
                         </div>
-                        <p className="text-ink/80 leading-relaxed font-light text-lg">
-                          <span className="font-serif italic text-2xl text-ink block mb-2 underline decoration-crimson/20 underline-offset-8">"{selectedOption.literal}"</span>
+                        <p className="text-ink/80 leading-relaxed font-light text-lg select-text">
+                          <span className="font-serif italic text-2xl text-ink block mb-2 underline decoration-crimson/20 underline-offset-8 select-text">"{selectedOption.literal}"</span>
                           {selectedOption.meaning}
                         </p>
                       </section>
@@ -328,7 +559,7 @@ export default function App() {
                           <PenTool className="w-4 h-4" />
                           <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold">Artist's Recommendation</h3>
                         </div>
-                        <p className="text-ink/50 leading-relaxed font-light italic">
+                        <p className="text-ink/50 leading-relaxed font-light italic select-text">
                           {selectedOption.calligraphy}
                         </p>
                       </section>
@@ -339,40 +570,36 @@ export default function App() {
             )}
           </AnimatePresence>
         </>
-      ) : (
+      )}
+
+      {view === 'hexagrams' && (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="w-full mb-24"
         >
-          <header className="text-center mb-16">
+          <header className="text-center mb-16 px-4">
             <h2 className="text-5xl md:text-7xl font-serif mb-4 leading-tight">The <span className="text-crimson">64 Hexagrams</span></h2>
-            <p className="text-ink/50 max-w-2xl mx-auto font-light">Archetypes of constant change. Download these sacred symbols for permanent ink or spiritual study.</p>
+            <p className="text-ink/50 max-w-2xl mx-auto font-light select-text italic">Archetypes of constant change. Click any symbol to download its high-resolution SVG or study its core essence.</p>
           </header>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
             {HEXAGRAMS.map((hex) => (
               <motion.div
                 key={hex.id}
-                whileHover={{ y: -5 }}
-                className="bg-white border border-ink/5 rounded-3xl p-5 flex flex-col items-center text-center shadow-sm group hover:shadow-xl transition-all"
+                whileHover={{ y: -8, scale: 1.02 }}
+                onClick={() => downloadSVG(hex.name, '', 'hexagram')}
+                className="bg-white border border-ink/5 rounded-[32px] p-6 flex flex-col items-center text-center shadow-sm group hover:shadow-2xl transition-all cursor-pointer relative"
               >
-                <HexagramIcon binary={hex.binary} className="text-ink mb-4 group-hover:text-crimson transition-colors" />
-                <h3 className="text-2xl font-serif mb-1">{hex.name}</h3>
-                <p className="text-[10px] uppercase font-bold text-ink/40 tracking-widest mb-3">{hex.meaning}</p>
-                
-                <div className="mt-auto flex gap-2">
-                   {/* Tooltip-like popup on hover could go here, for now keeping it clean */}
-                   <button 
-                    onClick={() => downloadSVG(hex.name, '', 'hexagram')}
-                    className="p-2 bg-paper rounded-full text-ink/40 hover:text-crimson transition-colors" title="Download SVG"
-                   >
-                     <Download className="w-4 h-4" />
-                   </button>
+                <HexagramIcon binary={hex.binary} className="text-ink mb-6 group-hover:text-crimson transition-colors" />
+                <h3 className="text-3xl font-serif mb-1 group-hover:text-crimson transition-colors">{hex.name}</h3>
+                <p className="text-[9px] uppercase font-bold text-ink/30 tracking-widest mb-3">{hex.pinyin}</p>
+                <div className="mt-2 pt-2 border-t border-ink/5 w-full">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-crimson mb-1">{hex.meaning}</p>
                 </div>
                 
-                {/* Mobile version of text details */}
-                <div className="hidden group-hover:block absolute bg-ink text-paper text-[10px] p-4 rounded-2xl z-50 pointer-events-none mt-12 w-48 shadow-2xl">
+                {/* Descriptive tooltip on desktop hover */}
+                <div className="hidden lg:group-hover:block absolute -bottom-2 translate-y-full left-1/2 -translate-x-1/2 bg-ink text-paper text-[10px] p-4 rounded-2xl z-50 pointer-events-none w-56 shadow-2xl transition-all opacity-0 group-hover:opacity-100 italic leading-relaxed">
                   {hex.shortDesc}
                 </div>
               </motion.div>
@@ -381,35 +608,193 @@ export default function App() {
         </motion.div>
       )}
 
-      {/* AdSense Footer */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 mb-24 px-4">
-        <div className="adsense-placeholder h-64">AdSense Sidebar Style</div>
-        <div className="adsense-placeholder h-64">AdSense Sidebar Style</div>
-        <div className="adsense-placeholder h-64">AdSense Sidebar Style</div>
+      {view === 'zodiac' && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full mb-24"
+        >
+          <header className="text-center mb-12 px-4">
+            <h2 className="text-5xl md:text-7xl font-serif mb-4 leading-tight">Zodiac <span className="text-crimson italic">Spirit Animals</span></h2>
+            <p className="text-ink/50 max-w-2xl mx-auto font-light select-text italic mb-8">Decoding the eastern archetypes for a modern, hardcore tattoo aesthetic. Find your totem based on your birth year.</p>
+            
+            {/* Zodiac Finder */}
+            <div className="max-w-md mx-auto relative group">
+              <input 
+                type="date" 
+                value={birthDate}
+                onChange={(e) => {
+                  setBirthDate(e.target.value);
+                  calculateZodiac(e.target.value);
+                }}
+                className="w-full bg-white border border-ink/10 rounded-2xl py-4 px-6 text-xl shadow-sm focus:outline-none focus:ring-4 focus:ring-crimson/5 focus:border-crimson/30 transition-all font-light"
+              />
+              <div className="absolute top-1/2 -translate-y-1/2 right-4 text-ink/20 group-hover:text-crimson/40 transition-colors pointer-events-none">
+                <Search className="w-5 h-5" />
+              </div>
+              <p className="text-[10px] uppercase tracking-widest mt-2 font-bold text-ink/30 italic">Select your birthday to find your sign</p>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {ZODIAC_ANIMALS.map((animal) => (
+              <motion.div
+                key={animal.name}
+                id={`zodiac-${animal.name}`}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ 
+                  opacity: 1, 
+                  scale: foundZodiac === animal.name ? 1.05 : 1,
+                  boxShadow: foundZodiac === animal.name ? "0 20px 40px -10px rgba(160, 28, 28, 0.2)" : "0 1px 3px 0 rgba(0, 0, 0, 0.1)"
+                }}
+                whileHover={{ y: -10 }}
+                className={`bg-white border rounded-[44px] p-0 transition-all group overflow-hidden flex flex-col ${foundZodiac === animal.name ? 'border-crimson shadow-2xl ring-2 ring-crimson/10' : 'border-ink/5 shadow-sm'}`}
+              >
+                {/* Mode Switcher */}
+                <div className="absolute top-4 right-4 z-20 flex bg-paper/50 backdrop-blur-sm p-1 rounded-full border border-ink/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => setZodiacStyles(prev => ({ ...prev, [animal.name]: { ...prev[animal.name], mode: 'calligraphy' } }))}
+                    className={`px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-bold transition-all ${zodiacStyles[animal.name]?.mode === 'calligraphy' ? 'bg-ink text-paper' : 'text-ink/40 hover:text-ink'}`}
+                  >Text</button>
+                  <button 
+                    onClick={() => setZodiacStyles(prev => ({ ...prev, [animal.name]: { ...prev[animal.name], mode: 'totem' } }))}
+                    className={`px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-bold transition-all ${zodiacStyles[animal.name]?.mode === 'totem' ? 'bg-ink text-paper' : 'text-ink/40 hover:text-ink'}`}
+                  >Image</button>
+                </div>
+
+                {/* Main WYSIWYG Preview Area */}
+                <div className="aspect-square w-full bg-[#fcfbf9] relative border-b border-ink/5 group-hover:bg-[#f8f5f0] transition-colors overflow-hidden">
+                  <div className="absolute inset-0 p-4 sm:p-8 transform group-hover:scale-105 transition-transform duration-500">
+                    <ZodiacSVGPreview 
+                      animal={animal.name}
+                      text={zodiacStyles[animal.name]?.mode === 'totem' ? animal.chinese : animal.chinese} 
+                      fontFamily={activeFont.family!} 
+                      style={zodiacStyles[animal.name]?.style || 'minimal'} 
+                      seed={zodiacStyles[animal.name]?.seed || 0}
+                      mode={zodiacStyles[animal.name]?.mode || 'calligraphy'}
+                    />
+                  </div>
+                  
+                  {/* Overlay for seed info */}
+                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
+                       <span className="text-[8px] font-bold uppercase tracking-widest text-crimson bg-crimson/5 px-1.5 py-0.5 rounded">
+                         {zodiacStyles[animal.name]?.mode === 'calligraphy' ? zodiacStyles[animal.name]?.style : 'Totem Mode'}
+                       </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-5 sm:p-8 pb-8 sm:pb-10 flex-grow">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-paper rounded-full flex items-center justify-center font-serif text-lg sm:text-xl border border-ink/5 group-hover:bg-crimson group-hover:text-paper transition-all shrink-0">{animal.chinese}</div>
+                    <div className="min-w-0">
+                      <h3 className="font-serif text-xl sm:text-2xl mb-0.5 truncate">{animal.name}</h3>
+                      <p className="text-[8px] sm:text-[10px] uppercase font-bold text-ink/30 tracking-widest italic leading-none">{animal.pinyin} &bull; {animal.element}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      <span className="text-[9px] font-bold text-crimson uppercase tracking-widest px-2 py-0.5 bg-crimson/5 rounded border border-crimson/10">{animal.spiritMeaning}</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-ink/60 font-light leading-relaxed italic mb-4 line-clamp-2 md:line-clamp-none">"{animal.personality}"</p>
+                    
+                    <div className="p-3 sm:p-4 bg-paper rounded-2xl border border-ink/5 space-y-3">
+                      <div>
+                        <div className="text-[8px] uppercase tracking-widest font-bold text-ink/30 mb-1">Spirit Combo</div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-serif text-xl sm:text-2xl text-ink">{animal.recommendedHanzi}</span>
+                          <span className="text-[8px] sm:text-[10px] font-light italic text-ink/50">{animal.recommendedHanziMeaning}</span>
+                        </div>
+                      </div>
+                      <div className="h-px bg-ink/5 w-full" />
+                      <div>
+                        <p className="text-[8px] font-bold text-ink/30 uppercase tracking-widest mb-1">Style Ref</p>
+                        <p className="text-[9px] sm:text-[10px] text-crimson font-medium">{animal.styleTip}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* External Search Links */}
+                  <div className="mb-6 flex flex-wrap gap-x-3 gap-y-2">
+                    <p className="w-full text-[8px] uppercase tracking-widest font-bold text-ink/20">Search Gallery</p>
+                    {[
+                      { name: 'Google', url: `https://www.google.com/search?q=${animal.name}+Chinese+Zodiac+Tattoo+Design+Stitched&tbm=isch` },
+                      { name: 'Pixabay', url: `https://pixabay.com/images/search/${animal.name.toLowerCase()}%20tattoo/` },
+                      { name: 'Baidu', url: `https://image.baidu.com/search/index?tn=baiduimage&word=${animal.chinese}纹身设计图` }
+                    ].map(site => (
+                      <a 
+                        key={site.name}
+                        href={site.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[9px] font-bold text-ink/40 hover:text-crimson transition-colors border-b border-ink/10 hover:border-crimson"
+                      >
+                        {site.name} ↗
+                      </a>
+                    ))}
+                  </div>
+                  
+                  <div className="mb-6 h-8 overflow-y-auto pr-2 scrollbar-hide">
+                    <p className="text-[8px] text-ink/20 uppercase tracking-[0.2em] font-bold leading-relaxed">{animal.years}</p>
+                  </div>
+
+                  <div className="mt-auto flex gap-2">
+                    <button 
+                      onClick={() => setZodiacStyles(prev => ({ 
+                        ...prev, 
+                        [animal.name]: { 
+                          ...prev[animal.name],
+                          style: ORNAMENT_STYLES[Math.floor(Math.random() * ORNAMENT_STYLES.length)],
+                          seed: Math.random()
+                        } 
+                      }))}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-paper hover:bg-crimson/5 text-ink/60 hover:text-crimson rounded-2xl text-[9px] uppercase tracking-widest font-bold transition-all border border-ink/5 cursor-pointer active:scale-95"
+                    >
+                      <Sparkles className="w-3 h-3" /> Random
+                    </button>
+                    <button 
+                      onClick={() => downloadSVG(animal.chinese, activeFont.family!, 'zodiac', { ...zodiacStyles[animal.name], animal: animal.name })}
+                      className="w-12 h-12 bg-ink text-paper rounded-2xl flex items-center justify-center hover:bg-crimson transition-colors shadow-md cursor-pointer active:scale-95"
+                    >
+                      <Download className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* AdSense Row */}
+      <div className="w-full h-32 mb-20">
+         <div className="adsense-placeholder h-full">Google AdSense - Horizontal Banner</div>
       </div>
 
       {/* Feature Grid */}
-      <section className="w-full grid grid-cols-1 md:grid-cols-3 gap-12 mb-32 border-t border-ink/5 pt-16">
+      <section className="w-full grid grid-cols-1 md:grid-cols-3 gap-12 mb-32 border-t border-ink/5 pt-16 relative z-10">
         <div>
           <div className="bg-crimson/5 w-14 h-14 rounded-3xl flex items-center justify-center mb-6">
             <Info className="text-crimson w-7 h-7" />
           </div>
-          <h4 className="text-2xl mb-3 font-serif italic">Cultural Integrity</h4>
-          <p className="text-sm text-ink/50 leading-relaxed font-light">Stop using machine translations. We consult philosophical roots and historical contexts to ensure your body art is respectful and accurate.</p>
+          <h4 className="text-2xl mb-3 font-serif italic select-text">Cultural Integrity</h4>
+          <p className="text-sm text-ink/50 leading-relaxed font-light select-text">Stop using machine translations. We consult philosophical roots and historical contexts to ensure your body art is respectful and accurate.</p>
         </div>
         <div>
           <div className="bg-ink/5 w-14 h-14 rounded-3xl flex items-center justify-center mb-6">
             <LayoutGrid className="text-ink w-7 h-7" />
           </div>
-          <h4 className="text-2xl mb-3 font-serif italic">Vecto Ready Designs</h4>
-          <p className="text-sm text-ink/50 leading-relaxed font-light">Every symbol and character can be downloaded as a high-quality SVG, perfect for tattoo artists to stencil and scale perfectly.</p>
+          <h4 className="text-2xl mb-3 font-serif italic select-text">Vector Ready Designs</h4>
+          <p className="text-sm text-ink/50 leading-relaxed font-light select-text">Every symbol and character can be downloaded as a high-quality SVG, perfect for tattoo artists to stencil and scale perfectly.</p>
         </div>
         <div>
           <div className="bg-ink/5 w-14 h-14 rounded-3xl flex items-center justify-center mb-6">
             <Share2 className="text-ink w-7 h-7" />
           </div>
-          <h4 className="text-2xl mb-3 font-serif italic">Global Community</h4>
-          <p className="text-sm text-ink/50 leading-relaxed font-light">Join thousands who have used our tools to verify their ink designs. Part of the Oriental Oracle network of metaphysical tools.</p>
+          <h4 className="text-2xl mb-3 font-serif italic select-text">Global Community</h4>
+          <p className="text-sm text-ink/50 leading-relaxed font-light select-text">Join thousands who have used our tools to verify their ink designs. Part of the Oriental Oracle network of metaphysical tools.</p>
         </div>
       </section>
 
@@ -417,18 +802,18 @@ export default function App() {
       <footer className="w-full border-t border-ink/10 pt-12 pb-16 text-center">
         <div className="flex items-center justify-center gap-3 mb-6">
            <Feather className="text-crimson w-5 h-5" />
-           <p className="text-xs uppercase tracking-[0.5em] text-ink/60 font-bold">Established MMXVI</p>
+           <p className="text-xs uppercase tracking-[0.5em] text-ink/60 font-bold select-text">Established MMXVI</p>
         </div>
-        <p className="text-[10px] uppercase tracking-[0.2em] text-ink/30 mb-8 px-4">
-          Powered by <a href="http://tattoo.ccwu.cc" className="text-crimson hover:underline">CCWU Network</a> 
-          &bull; Partnered with <a href="https://sadtuwart69-code.github.io/Oriental-Oracle/" className="hover:text-ink">Oriental Oracle</a>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-ink/30 mb-8 px-4 select-text">
+          Powered by <a href="http://tattoo.ccwu.cc" className="text-crimson hover:underline cursor-pointer">CCWU Network</a> 
+          &bull; Partnered with <a href="https://sadtuwart69-code.github.io/Oriental-Oracle/" className="hover:text-ink cursor-pointer">Oriental Oracle</a>
         </p>
-        <div className="flex justify-center gap-12 text-ink/40 text-[10px] uppercase tracking-[0.1em] font-bold">
-          <a href="#" className="hover:text-crimson transition-colors">Privacy</a>
-          <a href="#" className="hover:text-crimson transition-colors">Terms</a>
-          <a href="#" className="hover:text-crimson transition-colors">Security</a>
+        <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-ink/40 text-[10px] uppercase tracking-[0.1em] font-bold">
+          <a href="#" className="hover:text-crimson transition-colors cursor-pointer">Privacy</a>
+          <a href="#" className="hover:text-crimson transition-colors cursor-pointer">Terms</a>
+          <a href="#" className="hover:text-crimson transition-colors cursor-pointer">Contact</a>
         </div>
-        <p className="mt-12 text-ink/10 text-[10px]">DESIGNED IN CHINATOWN. DEVELOPED GLOBALLY.</p>
+        <p className="mt-12 text-ink/10 text-[10px] select-text">DESIGNED IN CHINATOWN. DEVELOPED GLOBALLY.</p>
       </footer>
     </div>
   );
