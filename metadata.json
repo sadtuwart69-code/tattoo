@@ -1,0 +1,8 @@
+{
+  "name": "Chinese Tattoo Generator",
+  "description": "Authentic Chinese tattoo design tool with real meanings, cultural context, and calligraphy styles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", "Libre Baskerville", serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --color-ink: #1a1a1a;
+  --color-paper: #f5f2ed;
+  --color-crimson: #a01c1c;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans;
+  }
+  
+  h1, h2, h3, h4 {
+    @apply font-serif;
+  }
+}
+
+/* Custom Scrollbar for a polished look */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-paper;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-ink/20 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink/40;
+}
+
+.calligraphy-box {
+  background-image: radial-gradient(circle at 50% 50%, rgba(160, 28, 28, 0.05) 0%, transparent 80%);
+}
+
+.adsense-placeholder {
+  @apply bg-ink/5 border border-dashed border-ink/20 rounded-lg flex items-center justify-center text-ink/40 text-sm italic;
+  min-height: 100px;
+}
+

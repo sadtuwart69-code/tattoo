@@ -1,0 +1,124 @@
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import { GoogleGenAI, Type } from "@google/genai";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json());
+
+  // Initialize Gemini
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY as string,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
+    }
+  });
+
+  // API: Translate English to Chinese Tattoo Designs
+  app.post("/api/translate", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: "Text is required" });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `You are an expert in Chinese linguistics and tattoo culture. 
+        Translate the following English word or concept into 3-5 authentic Chinese tattoo-worthy options. 
+        Focus on deep meanings, philosophical symbols, and classic idioms (chengyu).
+        
+        For each option, provide:
+        1. chinese: The Chinese Characters (Simplified).
+        2. traditional: Traditional Chinese Characters.
+        3. pinyin: Pinyin pronunciation.
+        4. literal: Literal English translation of the characters.
+        5. meaning: Comprehensive philosophical or cultural context.
+        6. calligraphy: Recommended calligraphy style explanation.
+
+        Input concept: "${text}"`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              options: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    chinese: { type: Type.STRING },
+                    traditional: { type: Type.STRING },
+                    pinyin: { type: Type.STRING },
+                    literal: { type: Type.STRING },
+                    meaning: { type: Type.STRING },
+                    calligraphy: { type: Type.STRING }
+                  },
+                  required: ["chinese", "pinyin", "literal", "meaning", "calligraphy"]
+                }
+              }
+            },
+            required: ["options"]
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text || "{\"options\": []}");
+      res.json(result);
+    } catch (error) {
+      console.error("Gemini Translation Error:", error);
+      res.status(500).json({ error: "Failed to generate authentic translation" });
+    }
+  });
+
+  // API: Get Random Inspiration
+  app.get("/api/inspiration", async (req, res) => {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: "Suggest one powerful Chinese word or idiom for a tattoo, including its characters, pinyin, and a short explanation of its strength/beauty.",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              chinese: { type: Type.STRING },
+              pinyin: { type: Type.STRING },
+              meaning: { type: Type.STRING }
+            }
+          }
+        }
+      });
+      res.json(JSON.parse(response.text || "{}"));
+    } catch (error) {
+      res.status(500).json({ error: "Inspiration failed" });
+    }
+  });
+
+  // Vite integration for dev, static files for prod
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer();
