@@ -317,17 +317,17 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Non-JSON response received:", text);
-        throw new Error(`Server returned non-JSON response (${res.status}). It might be under heavy load.`);
+        console.error("收到非 JSON 响应:", text);
+        throw new Error(`服务器返回了非 JSON 响应（状态码：${res.status}）。可能是服务器负载过高或路由错误。`);
       }
 
       const data = await res.json();
       
       if (!res.ok) {
-        throw new Error(data.error || `Server error: ${res.status}`);
+        throw new Error(data.error || `服务器错误: ${res.status}`);
       }
       
-      console.log("Translation results:", data);
+      console.log("翻译结果:", data);
       
       if (data.error) {
         throw new Error(data.error);
@@ -712,15 +712,14 @@ export default function App() {
                 className="mt-4 p-4 rounded-2xl bg-crimson/5 border border-crimson/10 text-crimson text-sm text-center"
               >
                 {error}
-                {error.includes("quota") ? (
-                  <p className="mt-2 text-xs opacity-70">
-                    Daily limit reached. Try the popular concepts below or contact <a href="mailto:dyjgs001@gmail.com" className="underline">support</a>.
-                  </p>
-                ) : (
-                   <p className="mt-2 text-xs opacity-70">
-                    Contact <a href="mailto:dyjgs001@gmail.com" className="underline">dyjgs001@gmail.com</a> for help.
-                  </p>
-                )}
+                <p className="mt-2 text-xs opacity-70">
+                  {error.includes("配额") || error.includes("quota") 
+                    ? "已达到每日搜索上限。请试试下方的热门概念，或明天再来。" 
+                    : "如果持续出现此问题，请联系支持人员。"}
+                </p>
+                <div className="mt-2 text-[10px] font-mono opacity-50">
+                  支持邮箱: dyjgs001@gmail.com
+                </div>
               </motion.div>
             )}
             

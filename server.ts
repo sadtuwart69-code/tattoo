@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -18,13 +18,9 @@ async function startServer() {
   });
 
   // Initialize Gemini
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY as string,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash", // Using a stable model name
   });
 
   // API: Search for Chinese Tattoo Designs
@@ -33,11 +29,9 @@ async function startServer() {
       const { text } = req.body;
       if (!text) return res.status(400).json({ error: "Search text is required" });
 
-      console.log(`[SEARCH] Query: "${text}"`);
+      console.log(`[SEARCH] Processing query: "${text}"`);
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `You are an expert in Chinese linguistics and tattoo culture. 
+      const prompt = `You are an expert in Chinese linguistics and tattoo culture. 
         Translate the following English word or concept into 3-5 authentic Chinese tattoo-worthy options. 
         Focus on deep meanings, philosophical symbols, and classic idioms (chengyu).
         
@@ -50,25 +44,28 @@ async function startServer() {
         6. calligraphy: Recommended calligraphy style explanation.
 
         IMPORTANT: If the word is already Chinese, translate it to English first, then provide authentic tattoo options based on that concept.
-        Return raw JSON only, matching the schema.
+        Return raw JSON only.
 
-        Input concept: "${text}"`,
-        config: {
+        Input concept: "${text}"`;
+
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
               options: {
-                type: Type.ARRAY,
+                type: SchemaType.ARRAY,
                 items: {
-                  type: Type.OBJECT,
+                  type: SchemaType.OBJECT,
                   properties: {
-                    chinese: { type: Type.STRING },
-                    traditional: { type: Type.STRING },
-                    pinyin: { type: Type.STRING },
-                    literal: { type: Type.STRING },
-                    meaning: { type: Type.STRING },
-                    calligraphy: { type: Type.STRING }
+                    chinese: { type: SchemaType.STRING },
+                    traditional: { type: SchemaType.STRING },
+                    pinyin: { type: SchemaType.STRING },
+                    literal: { type: SchemaType.STRING },
+                    meaning: { type: SchemaType.STRING },
+                    calligraphy: { type: SchemaType.STRING }
                   },
                   required: ["chinese", "pinyin", "literal", "meaning", "calligraphy"]
                 }
@@ -79,22 +76,19 @@ async function startServer() {
         }
       });
 
-      const rawText = response.text || "";
-      console.log("Raw Gemini Response:", rawText);
+      const rawText = result.response.text();
+      console.log("[SEARCH] Gemini raw response received");
       
-      // Attempt to clean JSON if backticks are present
-      const cleanJson = rawText.replace(/```json\n?|```/g, "").trim();
-      
-      const result = JSON.parse(cleanJson || "{\"options\": []}");
-      res.json(result);
+      const parsed = JSON.parse(rawText || "{\"options\": []}");
+      res.json(parsed);
     } catch (error: any) {
-      console.error("Gemini Translation Error:", error);
+      console.error("[SEARCH] Error:", error);
       
       const status = error.status || 500;
-      let message = "Failed to generate authentic translation. Please try another word.";
+      let message = "生成翻译失败，请尝试其他词汇。";
       
       if (status === 429) {
-        message = "Daily AI search quota exceeded. Please try again tomorrow or contact support.";
+        message = "每日 AI 搜索配额已用完，请明天再试或联系支持。";
       }
       
       res.status(status).json({ error: message });
@@ -104,46 +98,53 @@ async function startServer() {
   // API: Get Random Inspiration
   app.get("/api/inspiration", async (req, res) => {
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: "Suggest one powerful Chinese word or idiom for a tattoo, including its characters, pinyin, and a short explanation of its strength/beauty.",
-        config: {
+      const prompt = "Suggest one powerful Chinese word or idiom for a tattoo, including its characters, pinyin, and a short explanation of its strength/beauty. Return as JSON with keys: chinese, pinyin, meaning.";
+      
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
-              chinese: { type: Type.STRING },
-              pinyin: { type: Type.STRING },
-              meaning: { type: Type.STRING }
-            }
+              chinese: { type: SchemaType.STRING },
+              pinyin: { type: SchemaType.STRING },
+              meaning: { type: SchemaType.STRING }
+            },
+            required: ["chinese", "pinyin", "meaning"]
           }
         }
       });
-      const jsonText = response.text || "{}";
-      res.json(JSON.parse(jsonText.replace(/```json\n?|```/g, "").trim()));
+      
+      const jsonText = result.response.text();
+      res.json(JSON.parse(jsonText));
     } catch (error: any) {
-      console.error("Gemini Inspiration Error:", error);
-      const status = error.status || 500;
-      res.status(status).json({ error: "Inspiration failed due to quota or server error" });
+      console.error("[INSPIRATION] Error:", error);
+      res.status(500).json({ error: "Inspiration failed" });
     }
+  });
+
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
   });
 
   // API 404 handler
   app.all("/api/*", (req, res) => {
-    console.warn(`[SERVER] 404 at ${req.method} ${req.path}`);
-    res.status(404).json({ error: `API route ${req.method} ${req.path} not found on this server` });
+    console.warn(`[SERVER] 404 Not Found: ${req.method} ${req.url}`);
+    res.status(404).json({ error: `Route ${req.method} ${req.url} not found` });
   });
 
   // Global Error Handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("Global Server Error:", err);
+    console.error("[SERVER] Global Error:", err);
     res.status(err.status || 500).json({ 
-      error: "An internal server error occurred",
+      error: "服务器内部错误",
       message: err.message
     });
   });
 
-  // Vite integration for dev, static files for prod
+  // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -159,7 +160,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 
