@@ -28,6 +28,8 @@ async function startServer() {
       const { text } = req.body;
       if (!text) return res.status(400).json({ error: "Text is required" });
 
+      console.log("Gemini translating concept:", text);
+
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `You are an expert in Chinese linguistics and tattoo culture. 
@@ -41,6 +43,9 @@ async function startServer() {
         4. literal: Literal English translation of the characters.
         5. meaning: Comprehensive philosophical or cultural context.
         6. calligraphy: Recommended calligraphy style explanation.
+
+        IMPORTANT: If the word is already Chinese, translate it to English first, then provide authentic tattoo options based on that concept.
+        Return raw JSON only, matching the schema.
 
         Input concept: "${text}"`,
         config: {
@@ -69,11 +74,25 @@ async function startServer() {
         }
       });
 
-      const result = JSON.parse(response.text || "{\"options\": []}");
+      const rawText = response.text || "";
+      console.log("Raw Gemini Response:", rawText);
+      
+      // Attempt to clean JSON if backticks are present
+      const cleanJson = rawText.replace(/```json\n?|```/g, "").trim();
+      
+      const result = JSON.parse(cleanJson || "{\"options\": []}");
       res.json(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gemini Translation Error:", error);
-      res.status(500).json({ error: "Failed to generate authentic translation" });
+      
+      const status = error.status || 500;
+      let message = "Failed to generate authentic translation. Please try another word.";
+      
+      if (status === 429) {
+        message = "Daily AI search quota exceeded. Please try again tomorrow or contact support.";
+      }
+      
+      res.status(status).json({ error: message });
     }
   });
 
@@ -95,9 +114,12 @@ async function startServer() {
           }
         }
       });
-      res.json(JSON.parse(response.text || "{}"));
-    } catch (error) {
-      res.status(500).json({ error: "Inspiration failed" });
+      const jsonText = response.text || "{}";
+      res.json(JSON.parse(jsonText.replace(/```json\n?|```/g, "").trim()));
+    } catch (error: any) {
+      console.error("Gemini Inspiration Error:", error);
+      const status = error.status || 500;
+      res.status(status).json({ error: "Inspiration failed due to quota or server error" });
     }
   });
 

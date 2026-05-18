@@ -29,10 +29,56 @@ const ORNAMENT_STYLES = [
   'cloud'
 ];
 
+const STATIC_FALLBACKS: Record<string, TattooOption[]> = {
+  "strength": [
+    { chinese: "力", traditional: "力", pinyin: "lì", literal: "Power / Strength", meaning: "The fundamental character for power, physical force, and inner strength.", calligraphy: "Best in bold, thick strokes like Modern or Regular script." },
+    { chinese: "强", traditional: "強", pinyin: "qiáng", literal: "Strong / Powerful", meaning: "Represents durability, mental fortitude, and being superior in capability.", calligraphy: "Suits a slightly cursive or semi-cursive style." }
+  ],
+  "peace": [
+    { chinese: "和", traditional: "和", pinyin: "hé", literal: "Harmony", meaning: "A profound concept of balance and peaceful coexistence within oneself and the world.", calligraphy: "Requires a balanced, elegant style like Clerical script." },
+    { chinese: "安", traditional: "安", pinyin: "ān", literal: "Peace / Calm", meaning: "Depicts a woman under a roof, symbolizing safety, stillness, and domestic peace.", calligraphy: "Very beautiful in regular script." }
+  ],
+  "love": [
+    { chinese: "爱", traditional: "愛", pinyin: "ài", literal: "Love / Affection", meaning: "The universal character for love, encompassing romantic, familial, and compassionate affection.", calligraphy: "Most expressive in Cursive or Semi-cursive scripts." },
+    { chinese: "仁", traditional: "仁", pinyin: "rén", literal: "Benevolence", meaning: "Confucian concept of human-heartedness and compassionate love for others.", calligraphy: "Suits an archival, traditional Regular script." }
+  ],
+  "wisdom": [
+    { chinese: "智", traditional: "智", pinyin: "zhì", literal: "Wisdom", meaning: "Combining 'knowledge' and 'sun', it represents the brightness of mind and deep understanding.", calligraphy: "Excellent for Clerical or Regular scripts." },
+    { chinese: "慧", traditional: "慧", pinyin: "huì", literal: "Insight", meaning: "Focuses on the purity of thought and intuitive wisdom.", calligraphy: "Suits a delicate, balanced brush style." }
+  ],
+  "courage": [
+    { chinese: "勇", traditional: "勇", pinyin: "yǒng", literal: "Brave / Courage", meaning: "Combining 'strength' with a symbol of readiness, it represents valor and fearlessness.", calligraphy: "Needs a dynamic, energetic brush style." }
+  ],
+  "freedom": [
+    { chinese: "自", traditional: "自", pinyin: "zì", literal: "Self", meaning: "The starting point of freedom - the self or origin.", calligraphy: "Suits any strong, independent script." },
+    { chinese: "由", traditional: "由", pinyin: "yóu", literal: "Origin / Cause", meaning: "Used with 'Zì' to form 'Zìyóu' (Freedom). It implies flow and spontaneity.", calligraphy: "Modern script looks great." }
+  ],
+  "faith": [
+    { chinese: "信", traditional: "信", pinyin: "xìn", literal: "Faith / Trust", meaning: "Combining 'person' and 'word', it signifies being true to one's word and having trust.", calligraphy: "Excellent in Regular script." },
+    { chinese: "念", traditional: "念", pinyin: "niàn", literal: "Idea / Belief", meaning: "Represents the present heart/mind, often used for spiritual faith or recurring thought.", calligraphy: "Suits a modern, clean brush style." }
+  ],
+  "dragon": [
+    { chinese: "龙", traditional: "龍", pinyin: "lóng", literal: "Dragon", meaning: "The symbol of imperial power, strength, and good fortune.", calligraphy: "Historically powerful in Seal script or very expressive Cursive." }
+  ],
+  "spirit": [
+    { chinese: "灵", traditional: "靈", pinyin: "líng", literal: "Spirit / Soul", meaning: "Refers to the ethereal soul, intelligence, or the magical/spiritual essence of things.", calligraphy: "Beautiful in Traditional Regular script." }
+  ],
+  "family": [
+    { chinese: "家", traditional: "家", pinyin: "jiā", literal: "Family / Home", meaning: "A roof over a pig (ancient symbol of wealth), representing the core of one's life and belonging.", calligraphy: "Very iconic in any classic brush style." }
+  ],
+  "warrior": [
+    { chinese: "武", traditional: "武", pinyin: "wǔ", literal: "Martial / Warrior", meaning: "Literally 'to stop a spear', representing the true essence of a warrior: the strength to bring peace.", calligraphy: "Strength-focused scripts like Northern Wei look best." }
+  ],
+  "infinity": [
+    { chinese: "恒", traditional: "恆", pinyin: "héng", literal: "Eternal / Constant", meaning: "Constant movement of the heart, representing infinity, endurance, and eternity.", calligraphy: "Suits a horizontal, balanced Clerical script." }
+  ]
+};
+
 export default function App() {
   const [view, setView] = useState<'translate' | 'hexagrams' | 'zodiac'>('translate');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<TattooOption[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [activeFont, setActiveFont] = useState(FONTS[0]);
@@ -71,12 +117,42 @@ export default function App() {
   };
 
   const fetchInspiration = async () => {
+    // Check cache first
+    const cached = localStorage.getItem('inspiration_cache');
+    const cachedTime = localStorage.getItem('inspiration_time');
+    const now = new Date().getTime();
+    
+    if (cached && cachedTime && (now - parseInt(cachedTime)) < 1000 * 60 * 60 * 12) { // 12 hour cache
+      try {
+        setInspiration(JSON.parse(cached));
+        return;
+      } catch (e) {
+        localStorage.removeItem('inspiration_cache');
+      }
+    }
+
     try {
       const res = await fetch('/api/inspiration');
       const data = await res.json();
+      
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Failed to fetch inspiration");
+      }
+
       setInspiration(data);
+      localStorage.setItem('inspiration_cache', JSON.stringify(data));
+      localStorage.setItem('inspiration_time', now.toString());
     } catch (e) {
-      console.error(e);
+      console.error("Inspiration fetch failed:", e);
+      // Random Fallbacks for better variation when quota is hit
+      const fallbacks = [
+        { chinese: "定", pinyin: "dìng", meaning: "To decide, to settle, to be calm and steady." },
+        { chinese: "悟", pinyin: "wù", meaning: "Enlightenment, to realize, to perceive the truth." },
+        { chinese: "勇", pinyin: "yǒng", meaning: "Courage, valor, the strength to face fear." },
+        { chinese: "宁", pinyin: "níng", meaning: "Peace, tranquility, serenity in the heart." },
+        { chinese: "志", pinyin: "zhì", meaning: "Ambition, will, purpose in life." }
+      ];
+      setInspiration(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
     }
   };
 
@@ -84,19 +160,65 @@ export default function App() {
     e?.preventDefault();
     if (!input.trim()) return;
 
+    const query = input.trim().toLowerCase();
+    
+    // Check static fallbacks first (to save quota for everyone)
+    if (STATIC_FALLBACKS[query]) {
+      setResults(STATIC_FALLBACKS[query]);
+      setSelectedIdx(0);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    
+    // Check cache next
+    const cached = localStorage.getItem(`cache_${query}`);
+    if (cached) {
+      try {
+        const data = JSON.parse(cached);
+        setResults(data);
+        setSelectedIdx(0);
+        setError(null);
+        setLoading(false);
+        return;
+      } catch (err) {
+        localStorage.removeItem(`cache_${query}`);
+      }
+    }
+
     setLoading(true);
+    setError(null);
     setResults([]);
+    console.log("Searching for:", query);
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({ text: query }),
       });
+      
       const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || `Server error: ${res.status}`);
+      }
+      
+      console.log("Translation results:", data);
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
       setResults(data.options || []);
       setSelectedIdx(0);
-    } catch (e) {
-      console.error(e);
+      
+      // Save to cache
+      if (data.options && data.options.length > 0) {
+        localStorage.setItem(`cache_${query}`, JSON.stringify(data.options));
+      }
+    } catch (e: any) {
+      console.error("Search failed:", e);
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -412,6 +534,7 @@ export default function App() {
             <button onClick={() => { setView('hexagrams'); setMobileMenuOpen(false); }} className="text-2xl font-serif cursor-pointer">I Ching 64 Hexagrams</button>
             <button onClick={() => { setView('zodiac'); setMobileMenuOpen(false); }} className="text-2xl font-serif cursor-pointer">Zodiac Signs</button>
             <a href="https://sadtuwart69-code.github.io/Oriental-Oracle/" target="_blank" className="text-2xl font-serif flex items-center gap-2 cursor-pointer">Oriental Oracle <ExternalLink /></a>
+            <a href="mailto:dyjgs001@gmail.com" className="text-lg font-serif text-crimson cursor-pointer mt-4 italic">Contact: dyjgs001@gmail.com</a>
             <button onClick={() => setMobileMenuOpen(false)} className="mt-8 p-4 bg-ink text-paper rounded-full cursor-pointer"><X /></button>
           </motion.div>
         )}
@@ -449,6 +572,7 @@ export default function App() {
                 className="w-full bg-white border border-ink/10 rounded-full py-6 px-10 pr-20 text-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-crimson/5 focus:border-crimson/30 transition-all placeholder:text-ink/20 font-light select-text"
               />
               <button
+                id="search-trigger"
                 type="submit"
                 disabled={loading}
                 className="absolute right-4 top-1/2 -translate-y-1/2 bg-ink text-paper p-4 rounded-full hover:bg-crimson transition-colors disabled:opacity-50 cursor-pointer"
@@ -456,6 +580,42 @@ export default function App() {
                 {loading ? <RefreshCw className="w-7 h-7 animate-spin" /> : <Search className="w-7 h-7" />}
               </button>
             </form>
+
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 rounded-2xl bg-crimson/5 border border-crimson/10 text-crimson text-sm text-center"
+              >
+                {error}
+                {error.includes("quota") ? (
+                  <p className="mt-2 text-xs opacity-70">
+                    Daily limit reached. Try the popular concepts below or contact <a href="mailto:dyjgs001@gmail.com" className="underline">support</a>.
+                  </p>
+                ) : (
+                   <p className="mt-2 text-xs opacity-70">
+                    Contact <a href="mailto:dyjgs001@gmail.com" className="underline">dyjgs001@gmail.com</a> for help.
+                  </p>
+                )}
+              </motion.div>
+            )}
+            
+            <div className="mt-8 flex flex-wrap justify-center gap-2">
+              {["Strength", "Peace", "Love", "Family", "Spirit", "Warrior", "Wisdom", "Dragon"].map(term => (
+                <button
+                  key={term}
+                  onClick={() => {
+                    setInput(term);
+                    // We need a way to trigger handleSearch safely or just rely on the click
+                    const searchBtn = document.getElementById('search-trigger');
+                    if (searchBtn) searchBtn.click();
+                  }}
+                  className="px-4 py-2 rounded-full bg-paper border border-ink/5 text-[10px] uppercase tracking-widest font-bold text-ink/40 hover:text-crimson hover:border-crimson/30 transition-all cursor-pointer"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
             
             {!results.length && !loading && inspiration && (
               <motion.div 
@@ -541,6 +701,25 @@ export default function App() {
                       >
                         <Download className="w-4 h-4" /> Download SVG
                       </button>
+                    </div>
+
+                    <div className="flex flex-wrap justify-center gap-4 mb-12">
+                       <p className="w-full text-[8px] uppercase tracking-widest font-bold text-ink/20">External Inspiration</p>
+                       {[
+                         { name: 'Google', url: `https://www.google.com/search?q=${selectedOption.chinese}+tattoo+design&tbm=isch` },
+                         { name: 'Baidu', url: `https://image.baidu.com/search/index?tn=baiduimage&word=${selectedOption.chinese}纹身` },
+                         { name: 'Pixabay', url: `https://pixabay.com/images/search/${selectedOption.chinese}/` }
+                       ].map(site => (
+                         <a 
+                           key={site.name}
+                           href={site.url} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="text-[10px] uppercase tracking-widest font-bold text-ink/40 hover:text-crimson transition-colors border-b border-ink/10"
+                         >
+                           {site.name} ↗
+                         </a>
+                       ))}
                     </div>
 
                     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-12 text-left border-t border-ink/5 pt-12">
@@ -811,7 +990,7 @@ export default function App() {
         <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-ink/40 text-[10px] uppercase tracking-[0.1em] font-bold">
           <a href="#" className="hover:text-crimson transition-colors cursor-pointer">Privacy</a>
           <a href="#" className="hover:text-crimson transition-colors cursor-pointer">Terms</a>
-          <a href="#" className="hover:text-crimson transition-colors cursor-pointer">Contact</a>
+          <a href="mailto:dyjgs001@gmail.com" className="hover:text-crimson transition-colors cursor-pointer">Contact: dyjgs001@gmail.com</a>
         </div>
         <p className="mt-12 text-ink/10 text-[10px] select-text">DESIGNED IN CHINATOWN. DEVELOPED GLOBALLY.</p>
       </footer>
