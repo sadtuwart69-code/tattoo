@@ -317,17 +317,17 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("收到非 JSON 响应:", text);
-        throw new Error(`服务器返回了非 JSON 响应（状态码：${res.status}）。可能是服务器负载过高或路由错误。`);
+        console.error("Non-JSON response:", text);
+        throw new Error(`Server returned non-JSON response (${res.status}). Expected JSON.`);
       }
 
       const data = await res.json();
       
       if (!res.ok) {
-        throw new Error(data.error || `服务器错误: ${res.status}`);
+        throw new Error(data.error || `Server error: ${res.status}`);
       }
       
-      console.log("翻译结果:", data);
+      console.log("Translation results:", data);
       
       if (data.error) {
         throw new Error(data.error);
@@ -713,12 +713,12 @@ export default function App() {
               >
                 {error}
                 <p className="mt-2 text-xs opacity-70">
-                  {error.includes("配额") || error.includes("quota") 
-                    ? "已达到每日搜索上限。请试试下方的热门概念，或明天再来。" 
-                    : "如果持续出现此问题，请联系支持人员。"}
+                  {error.includes("quota") || error.includes("配额")
+                    ? "Daily limit reached. Try the popular concepts below or come back tomorrow." 
+                    : "If this persists, please contact support."}
                 </p>
                 <div className="mt-2 text-[10px] font-mono opacity-50">
-                  支持邮箱: dyjgs001@gmail.com
+                  Support: dyjgs001@gmail.com
                 </div>
               </motion.div>
             )}
