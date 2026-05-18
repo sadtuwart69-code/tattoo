@@ -12,6 +12,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  app.use((req, res, next) => {
+    console.log(`[SERVER] ${new Date().toISOString()} ${req.method} ${req.url}`);
+    next();
+  });
+
   // Initialize Gemini
   const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY as string,

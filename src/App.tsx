@@ -108,6 +108,18 @@ const STATIC_FALLBACKS: Record<string, TattooOption[]> = {
   ],
   "fate": [
     { chinese: "命", traditional: "命", pinyin: "mìng", literal: "Life / Destiny", meaning: "The command of heaven; one's lot in life.", calligraphy: "Solemn style." }
+  ],
+  "cat": [
+    { chinese: "猫", traditional: "貓", pinyin: "māo", literal: "Cat", meaning: "A symbol of agility, curiosity, and mystery in many cultures, though traditionally in China it was also for warding off spirits.", calligraphy: "Playful Semi-cursive style." }
+  ],
+  "dog": [
+    { chinese: "犬", traditional: "犬", pinyin: "quǎn", literal: "Dog", meaning: "Symbol of loyalty, protection, and faithfulness.", calligraphy: "Strong Regular script." }
+  ],
+  "tiger": [
+    { chinese: "虎", traditional: "虎", pinyin: "hǔ", literal: "Tiger", meaning: "King of beasts in China, symbol of courage, protection from evil, and kingly power.", calligraphy: "Needs aggressive, powerful brushwork." }
+  ],
+  "phoenix": [
+    { chinese: "凤", traditional: "鳳", pinyin: "fèng", literal: "Phoenix", meaning: "Symbol of high virtue, grace, and rebirth; representing the feminine aspect (dual with Dragon).", calligraphy: "Sleek, refined strokes." }
   ]
 };
 
@@ -499,7 +511,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const selectedOption = results[selectedIdx];
+  const selectedOption = results[selectedIdx] || (results.length > 0 ? results[0] : null);
 
   const HexagramIcon = ({ binary, className = "" }: { binary: string, className?: string }) => {
     const lines = binary.split('').reverse(); 
@@ -657,7 +669,7 @@ export default function App() {
             )}
             
             <div className="mt-8 flex flex-wrap justify-center gap-2">
-              {["Strength", "Dragon", "Peace", "Love", "Family", "Warrior", "Power", "Loyalty", "Wisdom", "Dream", "Spirit"].map(term => (
+              {["Strength", "Dragon", "Peace", "Love", "Family", "Spirit", "Warrior", "Loyalty", "Wisdom", "Dream", "Cat", "Fate"].map(term => (
                 <button
                   key={term}
                   onClick={() => handleSearch(term)}
@@ -715,86 +727,94 @@ export default function App() {
 
                 {/* Focus Area */}
                 <div className="lg:col-span-9 bg-white border border-ink/5 rounded-[44px] md:rounded-[56px] p-6 md:p-16 shadow-2xl relative overflow-hidden calligraphy-box">
-                  {/* Font Toggles */}
-                  <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-wrap justify-end gap-1 md:gap-2 max-w-[200px] md:max-w-none">
-                    {FONTS.map(f => (
-                      <button
-                        key={f.name}
-                        onClick={() => setActiveFont(f)}
-                        className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest border transition-all cursor-pointer ${
-                          activeFont.name === f.name ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink/60 border-ink/5 hover:border-ink/20'
-                        }`}
-                      >
-                        {f.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-col items-center text-center">
-                    <motion.div
-                      key={`${selectedOption.chinese}-${activeFont.name}`}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', damping: 20 }}
-                      className="mb-8 mt-12 md:mt-0"
-                    >
-                      <h2 className="text-[100px] sm:text-[140px] md:text-[220px] leading-none text-ink drop-shadow-xl select-all">
-                        <span className={activeFont.value}>{selectedOption.chinese}</span>
-                      </h2>
-                      <p className="text-crimson font-serif text-3xl mt-6 italic select-text">{selectedOption.pinyin}</p>
-                    </motion.div>
-
-                    <div className="flex gap-4 mb-12">
-                      <div className="px-4 py-2 bg-paper rounded-full text-xs font-mono text-ink/40 select-text">TRAD: {selectedOption.traditional}</div>
-                      <button 
-                        onClick={() => downloadSVG(selectedOption.chinese, activeFont.family!, 'tattoo')}
-                        className="flex items-center gap-2 px-6 py-2 bg-crimson text-paper rounded-full text-xs uppercase tracking-widest font-bold hover:bg-ink transition-colors shadow-lg cursor-pointer"
-                      >
-                        <Download className="w-4 h-4" /> Download SVG
-                      </button>
+                  {!selectedOption ? (
+                    <div className="flex flex-col items-center justify-center h-full text-ink/20 italic">
+                      No option selected
                     </div>
+                  ) : (
+                    <>
+                      {/* Font Toggles */}
+                      <div className="absolute top-4 right-4 md:top-8 md:right-8 flex flex-wrap justify-end gap-1 md:gap-2 max-w-[200px] md:max-w-none">
+                        {FONTS.map(f => (
+                          <button
+                            key={f.name}
+                            onClick={() => setActiveFont(f)}
+                            className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest border transition-all cursor-pointer ${
+                              activeFont.name === f.name ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink/60 border-ink/5 hover:border-ink/20'
+                            }`}
+                          >
+                            {f.name}
+                          </button>
+                        ))}
+                      </div>
 
-                    <div className="flex flex-wrap justify-center gap-4 mb-12">
-                       <p className="w-full text-[8px] uppercase tracking-widest font-bold text-ink/20">External Inspiration</p>
-                       {[
-                         { name: 'Google', url: `https://www.google.com/search?q=${selectedOption.chinese}+tattoo+design&tbm=isch` },
-                         { name: 'Baidu', url: `https://image.baidu.com/search/index?tn=baiduimage&word=${selectedOption.chinese}纹身` },
-                         { name: 'Pixabay', url: `https://pixabay.com/images/search/${selectedOption.chinese}/` }
-                       ].map(site => (
-                         <a 
-                           key={site.name}
-                           href={site.url} 
-                           target="_blank" 
-                           rel="noopener noreferrer"
-                           className="text-[10px] uppercase tracking-widest font-bold text-ink/40 hover:text-crimson transition-colors border-b border-ink/10"
-                         >
-                           {site.name} ↗
-                         </a>
-                       ))}
-                    </div>
+                      <div className="flex flex-col items-center text-center">
+                        <motion.div
+                          key={`${selectedOption.chinese}-${activeFont.name}`}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: 'spring', damping: 20 }}
+                          className="mb-8 mt-12 md:mt-0"
+                        >
+                          <h2 className="text-[100px] sm:text-[140px] md:text-[220px] leading-none text-ink drop-shadow-xl select-all">
+                            <span className={activeFont.value}>{selectedOption.chinese}</span>
+                          </h2>
+                          <p className="text-crimson font-serif text-3xl mt-6 italic select-text">{selectedOption.pinyin}</p>
+                        </motion.div>
 
-                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-12 text-left border-t border-ink/5 pt-12">
-                      <section>
-                        <div className="flex items-center gap-2 mb-4 text-crimson">
-                          <BookOpen className="w-4 h-4" />
-                          <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold">Deep Context</h3>
+                        <div className="flex gap-4 mb-12">
+                          <div className="px-4 py-2 bg-paper rounded-full text-xs font-mono text-ink/40 select-text">TRAD: {selectedOption.traditional}</div>
+                          <button 
+                            onClick={() => downloadSVG(selectedOption.chinese, activeFont.family!, 'tattoo')}
+                            className="flex items-center gap-2 px-6 py-2 bg-crimson text-paper rounded-full text-xs uppercase tracking-widest font-bold hover:bg-ink transition-colors shadow-lg cursor-pointer"
+                          >
+                            <Download className="w-4 h-4" /> Download SVG
+                          </button>
                         </div>
-                        <p className="text-ink/80 leading-relaxed font-light text-lg select-text">
-                          <span className="font-serif italic text-2xl text-ink block mb-2 underline decoration-crimson/20 underline-offset-8 select-text">"{selectedOption.literal}"</span>
-                          {selectedOption.meaning}
-                        </p>
-                      </section>
-                      <section>
-                        <div className="flex items-center gap-2 mb-4 text-ink/40">
-                          <PenTool className="w-4 h-4" />
-                          <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold">Artist's Recommendation</h3>
+
+                        <div className="flex flex-wrap justify-center gap-4 mb-12">
+                           <p className="w-full text-[8px] uppercase tracking-widest font-bold text-ink/20">External Inspiration</p>
+                           {[
+                             { name: 'Google', url: `https://www.google.com/search?q=${selectedOption.chinese}+tattoo+design&tbm=isch` },
+                             { name: 'Baidu', url: `https://image.baidu.com/search/index?tn=baiduimage&word=${selectedOption.chinese}纹身` },
+                             { name: 'Pixabay', url: `https://pixabay.com/images/search/${selectedOption.chinese}/` }
+                           ].map(site => (
+                             <a 
+                               key={site.name}
+                               href={site.url} 
+                               target="_blank" 
+                               rel="noopener noreferrer"
+                               className="text-[10px] uppercase tracking-widest font-bold text-ink/40 hover:text-crimson transition-colors border-b border-ink/10"
+                             >
+                               {site.name} ↗
+                             </a>
+                           ))}
                         </div>
-                        <p className="text-ink/50 leading-relaxed font-light italic select-text">
-                          {selectedOption.calligraphy}
-                        </p>
-                      </section>
-                    </div>
-                  </div>
+
+                        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-12 text-left border-t border-ink/5 pt-12">
+                          <section>
+                            <div className="flex items-center gap-2 mb-4 text-crimson">
+                              <BookOpen className="w-4 h-4" />
+                              <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold">Deep Context</h3>
+                            </div>
+                            <div className="text-ink/80 leading-relaxed font-light text-lg select-text">
+                              <span className="font-serif italic text-2xl text-ink block mb-2 underline decoration-crimson/20 underline-offset-8 select-text">"{selectedOption.literal}"</span>
+                              {selectedOption.meaning}
+                            </div>
+                          </section>
+                          <section>
+                            <div className="flex items-center gap-2 mb-4 text-ink/40">
+                              <PenTool className="w-4 h-4" />
+                              <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold">Artist's Recommendation</h3>
+                            </div>
+                            <p className="text-ink/50 leading-relaxed font-light italic select-text">
+                              {selectedOption.calligraphy}
+                            </p>
+                          </section>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}
